@@ -1,0 +1,5 @@
+a = read f1 ;
+b = read f2 ;
+c = section a 2 b ;
+d = union c b ;
+e = product d c ;
