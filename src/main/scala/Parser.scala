@@ -1,13 +1,13 @@
-package edu.tum.cs.afp
+package edu.tum.cs.afl
 
 import scala.util.parsing.combinator.RegexParsers
 import scala.util.matching.Regex
 
 object Parser {
 
-	import Data._
+	import Program._
 
-	object REParser extends RegexParsers {
+	object ProgramParser extends RegexParsers {
 
 		def program: Parser[Program] = rep1(command)
 
@@ -34,6 +34,6 @@ object Parser {
 
 	}
 
-	def parse(s: String): Program = REParser.parseAll(REParser.program, s).get
+	def parse(s: String): Program = ProgramParser.parseAll(ProgramParser.program, s).get
 
 }

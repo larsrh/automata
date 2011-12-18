@@ -1,6 +1,6 @@
-package edu.tum.cs.afp
+package edu.tum.cs.afl
 
-object Data {
+object Program {
 
 	type Program = List[Command]
 
