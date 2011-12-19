@@ -1,7 +1,7 @@
 package edu.tum.cs.afl
 
-import scala.util.parsing.combinator.RegexParsers
-import scala.util.matching.Regex
+import util.parsing.combinator.RegexParsers
+import util.matching.Regex
 
 object Parser {
 
