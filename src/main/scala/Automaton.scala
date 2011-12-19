@@ -31,6 +31,8 @@ object MasterAutomaton {
 		protected[afl] val id = 0
 		val length = 0
 		val words = Set.empty[Seq[Boolean]]
+
+		def ofLength(length: Int): State = ((this: State) /: (1 to length)) { case (s, _) => Succ(s, s) }
 	}
 	
 	object Epsilon extends State {
@@ -65,6 +67,8 @@ object MasterAutomaton {
 				s
 			})
 		}
+
+		def unapply(s: Succ): Option[(State, State)] = Some((s.succ0, s.succ1))
 	}
 
 	private var counter = 2
