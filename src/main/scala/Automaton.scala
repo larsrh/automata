@@ -18,32 +18,30 @@ trait Automaton {
 
 object MasterAutomaton {
 
-	sealed trait State extends Automaton {
-		def id: Int
+	sealed trait State {
+		protected[afl] def id: Int
 		def length: Int
+		def words: Set[Seq[Boolean]]
 
-		override final def hashCode = id
-		
-		final val dimension = 1
 	}
 
 	object EmptySet extends State {
 		override def toString = "<empty>"
 
-		val id = 0
+		protected[afl] val id = 0
 		val length = 0
-		val words = Set.empty[Seq[Seq[Boolean]]]
+		val words = Set.empty[Seq[Boolean]]
 	}
 	
 	object Epsilon extends State {
 		override def toString = "<epsilon>"
 
-		val id = 1
+		protected[afl] val id = 1
 		val length = 0
-		val words = Set(Seq(Seq.empty[Boolean]))
+		val words = Set(Seq.empty[Boolean])
 	}
 	
-	class Succ private(val id: Int, val succ0: State, val succ1: State) extends State {
+	final class Succ private(protected[afl] val id: Int, val succ0: State, val succ1: State) extends State {
 		require(succ0.length == succ1.length)
 		
 		override def toString = id + " [0 -> " + succ0.id + ", 1 -> " + succ1.id + "]"
@@ -51,12 +49,9 @@ object MasterAutomaton {
 		val length = succ0.length + 1
 
 		def words = {
-			def prepend(prefix: Boolean)(xss: Seq[Seq[Boolean]]) =
-				xss map { xs => prefix +: xs }
-
 			val w0 = succ0.words
 			val w1 = succ1.words
-			(w0 map prepend(false)) union (w1 map prepend(true))
+			(w0 map { false +: _ }) union (w1 map { true +: _ })
 		}
 	}
 
@@ -81,8 +76,8 @@ object MasterAutomaton {
 class MultiDFA(start: MasterAutomaton.State) extends Automaton {
 
 	val length = start.length
-	val dimension = start.dimension
+	val dimension = 1
 
-	def words = start.words
+	def words = start.words map { Seq(_) }
 
 }
