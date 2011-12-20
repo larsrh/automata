@@ -155,6 +155,54 @@ final class MasterAutomaton private(val dimension: Int) { self =>
 			aux(this, that)
 		}
 
+		final def section(that: MasterAutomaton#State, pos: Int): MasterAutomaton#State = {
+			require(this.length == that.length)
+			require(0 < pos && pos <= length)
+			require(dimension > 0)
+
+			type State = MasterAutomaton#State
+			type Succ = MasterAutomaton#Succ
+			val master = MasterAutomaton(dimension - 1)
+			val thatMaster = that.automaton
+			
+			val buffer = mutable.Map[(State, State), master.State]()
+
+			def aux(s1: State, s2: State): master.State = {
+				assert(s1.length == s2.length)
+				
+				// The pairing strategy is almost the same as in `projection`.
+				def groupedUnion(pos: Int, succs: List[State], succFalse: State, succTrue: State): List[master.State] = {
+					val half = succs.length / 2
+					val (first, second) = succs splitAt half
+					if (pos == 1)
+						// mutual recursion, yo
+						(first map { aux(_, succFalse) }) zip (second map { aux(_, succTrue) }) map { case (s1, s2) => s1 union s2 }
+					else
+						groupedUnion(pos-1, first, succFalse, succTrue) ++ groupedUnion(pos-1, second, succFalse, succTrue)
+				}
+
+				buffer.getOrElseUpdate((s1, s2),
+					if (s1 == EmptySet || s2 == thatMaster.EmptySet)
+						master.EmptySet
+					else if (s1 == Epsilon && s2 == thatMaster.Epsilon)
+						master.Epsilon
+					else {
+						val succs = s1.asInstanceOf[Succ].succs
+						val List(succFalse, succTrue) = s2.asInstanceOf[Succ].succs
+						master.Succ(groupedUnion(pos, succs, succFalse, succTrue))
+					}
+				)
+			}
+
+			if (that.automaton.dimension != 1) {
+				log("Warning: join where m(v) ≠ 1")
+				master.EmptySet ofLength length
+			}
+			else {
+				aux(this, that)
+			}
+		}
+
 		final def projection(pos: Int): MasterAutomaton#State = {
 			require(0 < pos && pos <= dimension)
 			require(dimension > 1)

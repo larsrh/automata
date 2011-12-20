@@ -96,6 +96,9 @@ object Test extends App {
 		val join2 = One.s1pad join product
 		Two.assertContains(join2, (3, 1), (2, 2), (1, 1))
 
+		val section = product.section(One.compl, 2)
+		Two.assertContains(section, (0, 1), (1, 1), (2, 1))
+
 	}
 
 	Three // force initialization
