@@ -111,6 +111,54 @@ final class MasterAutomaton private(val dimension: Int) { self =>
 			aux(this, that)
 		}
 
+		final def join(that: MasterAutomaton#State): MasterAutomaton#State = {
+			// some duplicated code from `product`
+
+			require(this.length == that.length)
+
+			type State = MasterAutomaton#State
+			type Succ = MasterAutomaton#Succ
+			val master = MasterAutomaton(that.automaton.dimension + dimension - 2)
+			val thatMaster = that.automaton
+			
+			val buffer = mutable.Map[(State, State), master.State]()
+
+			def aux(s1: State, s2: State): master.State = {
+				assert(s1.length == s2.length)
+				
+				buffer.getOrElseUpdate((s1, s2),
+					buffer.getOrElse((s2, s1), 
+						if (s1 == EmptySet || s2 == thatMaster.EmptySet)
+							master.EmptySet
+						else if (s1 == Epsilon && s2 == thatMaster.Epsilon)
+							master.Epsilon
+						else {
+							// We use a similar pairing strategy as in `projection` for
+							// the case i = 1.
+							// Observe that the first half of successors of `s2` share the
+							// `false` as the first element (`true` for the second half).
+							// For `s1`, every even successor has `false` as the last element.
+							val succs1 = s1.asInstanceOf[Succ].succs
+							val succs2 = s2.asInstanceOf[Succ].succs
+
+							val (first, second) = succs2 splitAt (succs2.length / 2)
+
+							// the compiler warning about a non-exhaustive match can be safely
+							// ignored here
+							val pairs = succs1 grouped 2 flatMap { case List(succ1False, succ1True) =>
+								(first map { aux(succ1False, _) }) zip
+								(second map { aux(succ1True, _) })
+							}
+
+							master.Succ(pairs map { case (s1, s2) => s1 union s2 } toList)
+						}
+					)
+				)
+			}
+
+			aux(this, that)
+		}
+
 		final def projection(pos: Int): MasterAutomaton#State = {
 			require(0 < pos && pos <= dimension)
 
