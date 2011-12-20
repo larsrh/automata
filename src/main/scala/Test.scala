@@ -7,12 +7,12 @@ object Test extends App {
 
 	import Util._
 
-	def one() {
+	object One {
 
 		val m1 = MasterAutomaton(1)
 		import m1._
 
-		def assertContains(s: State, words: Int*) =
+		def assertContains(s: MasterAutomaton#State, words: Int*) =
 			assert((s.words map { ws => seqToInt(ws.head) }).toSet === words.toSet)
 
 		def succ(s1: State, s2: State) = Succ(List(s1, s2))
@@ -52,12 +52,12 @@ object Test extends App {
 
 	}
 
-	def two() {
+	object Two {
 
 		val m2 = MasterAutomaton(2)
 		import m2._
 
-		def assertContains(s: State, words: (Int, Int)*) =
+		def assertContains(s: MasterAutomaton#State, words: (Int, Int)*) =
 			assert((s.words map { _ map seqToInt } toSet) === (words map { case (w1, w2) => List(w1, w2) } toSet))
 
 		def succ(s00: State, s01: State, s10: State, s11: State) = Succ(List(s00, s01, s10, s11))
@@ -79,8 +79,20 @@ object Test extends App {
 
 	}
 
-	one()
-	two()
+	object Three {
+		
+		def assertContains(s: MasterAutomaton#State, words: (Int, Int, Int)*) =
+			assert((s.words map { _ map seqToInt } toSet) === (words map { case (w1, w2, w3) => List(w1, w2, w3) } toSet))
+
+		val product = One.union product Two.union
+		assertContains(product, (for (x <- List(0, 1, 2); y <- List((3, 1), (2, 2), (1, 1))) yield (x, y._1, y._2)): _*)
+
+		val projection = product projection 2
+		Two.assertContains(projection, List(0, 1, 2) <|*|> List(1, 2): _*)
+
+	}
+
+	Three // force initialization
 
 }
 

@@ -21,6 +21,8 @@ final class MasterAutomaton private(val dimension: Int) { self =>
 
 	sealed trait State {
 
+		final def automaton: self.type = self
+
 		protected[afl] def id: Int
 		def length: Int
 
@@ -44,14 +46,14 @@ final class MasterAutomaton private(val dimension: Int) { self =>
 			def aux(s1: State, s2: State): State = {
 				assert(this.length == that.length)
 
-				buffer.getOrElseUpdate((s1, s2), {
-					buffer.getOrElse((s2, s1), (s1, s2) match {
+				buffer.getOrElseUpdate((s1, s2),
+					buffer.getOrElse((s2, s1), ((s1, s2): @unchecked) match {
 						case (EmptySet, x) => onEmptySet(x)
 						case (x, EmptySet) => onEmptySet(x)
 						case (Epsilon, Epsilon) => onEpsilon
 						case (s1: Succ, s2: Succ) => Succ(s1.succs zip s2.succs map { t => aux(t._1, t._2) })
 					})
-				})
+				)
 			}
 
 			aux(this, that)
@@ -69,6 +71,74 @@ final class MasterAutomaton private(val dimension: Int) { self =>
 					case EmptySet => Epsilon
 					case Epsilon => EmptySet
 					case s: Succ => Succ(s.succs map aux)
+				})
+
+			aux(this)
+		}
+
+		final def product(that: MasterAutomaton#State): MasterAutomaton#State = {
+			require(this.length == that.length)
+
+			type State = MasterAutomaton#State
+			type Succ = MasterAutomaton#Succ
+			val master = MasterAutomaton(that.automaton.dimension + dimension)
+			val thatMaster = that.automaton
+			
+			val buffer = mutable.Map[(State, State), master.State]()
+
+			def aux(s1: State, s2: State): master.State = {
+				assert(s1.length == s2.length)
+
+				buffer.getOrElseUpdate((s1, s2),
+					// this check only makes sense if `s1` and `s2` have the same dimension
+					buffer.getOrElse((s2, s1), 
+						// no match here because of a scalac bug
+						// (invalid code is generated)
+						// appears to be <https://issues.scala-lang.org/browse/SI-4440>
+						if (s1 == EmptySet || s2 == thatMaster.EmptySet)
+							master.EmptySet
+						else if (s1 == Epsilon && s2 == thatMaster.Epsilon)
+							master.Epsilon
+						else
+							master.Succ(
+								for (succ1 <- s1.asInstanceOf[Succ].succs; succ2 <- s2.asInstanceOf[Succ].succs)
+								yield aux(succ1, succ2)
+							)
+					)
+				)
+			}
+
+			aux(this, that)
+		}
+
+		final def projection(pos: Int): MasterAutomaton#State = {
+			require(0 < pos && pos <= dimension)
+
+			val master = MasterAutomaton(dimension - 1)
+			val buffer = mutable.Map[State, master.State]()
+
+			// When we project, the set of successors collapes into pairs of successors
+			// which can be reached via the same character. Instead of simply calling
+			// `groupBy` to find out which, we use a nice symmetry here.
+			// Assume we have a dimension of 3. Our initial alphabet is [0,0,0], [0,0,1], ...
+			// Observe that if we want to project for i = 1, the first and the fifth, the
+			// second and the sixth, ... characters form pairs, respectively.
+			// If we project for i = 2, we split the alphabet in the middle and project
+			// for i = 1 on both sides.
+			def groupedUnion(pos: Int, succs: List[master.State]): List[master.State] = {
+				val half = succs.length / 2
+				val (first, second) = succs splitAt half
+				if (pos == 1)
+					(0 until half) map { i => first(i) union second(i) } toList
+				else
+					groupedUnion(pos-1, first) ++ groupedUnion(pos-1, second)
+			}
+
+			def aux(s: State): master.State =
+				buffer.getOrElseUpdate(s, s match {
+					case EmptySet => master.EmptySet
+					case Epsilon => master.Epsilon
+					case s: Succ => master.Succ(groupedUnion(pos, s.succs map aux))
 				})
 
 			aux(this)
