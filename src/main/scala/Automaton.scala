@@ -2,47 +2,54 @@ package edu.tum.cs.afl
 
 import collection.mutable
 
-trait Automaton {
+import scalaz._
+import Scalaz._
 
-	def dimension: Int
-	def length: Int
-
-	/**
-	 * The set of all words accepted by this automaton.
-	 * @return a `Set` of sequences of length `this.dimension` containing
-	 *         sequences of length `this.length`
-	 */
-	def words: Set[Seq[Seq[Boolean]]]
-
-}
+import Util._
 
 object MasterAutomaton {
 
+	private val buffer = mutable.Map[Int, MasterAutomaton]()
+
+	def apply(dim: Int) = buffer.getOrElseUpdate(dim, new MasterAutomaton(dim))
+
+}
+
+final class MasterAutomaton private(val dimension: Int) { self =>
+
+	require(dimension >= 1)
+
 	sealed trait State {
+
 		protected[afl] def id: Int
 		def length: Int
-		def words: Set[Seq[Boolean]]
+
+		/**
+		 * The set of all words accepted by this automaton.
+		 * @return a list of lists of length `self.dimension` containing lists
+		 *         of length `this.length`
+		 */
+		def words: List[List[List[Boolean]]]
 
 		final def padTo(newLength: Int): State =
 			(this /: (length until newLength)) { case (s, i) =>
-				Succ(s, EmptySet ofLength i)
+				val empty = EmptySet ofLength i
+				Succ(s :: List.fill((1 << dimension) - 1)(empty))
 			}
 
 		private def binaryOp(that: State, onEmptySet: State => State, onEpsilon: => State): State = {
 			require(this.length == that.length)
-			val cache = mutable.Map[(State, State), State]()
+			val buffer = mutable.Map[(State, State), State]()
 
 			def aux(s1: State, s2: State): State = {
 				assert(this.length == that.length)
-				cache.getOrElse((s1, s2), {
-					cache.getOrElse((s2, s1), (s1, s2) match {
+
+				buffer.getOrElseUpdate((s1, s2), {
+					buffer.getOrElse((s2, s1), (s1, s2) match {
 						case (EmptySet, x) => onEmptySet(x)
 						case (x, EmptySet) => onEmptySet(x)
 						case (Epsilon, Epsilon) => onEpsilon
-						case (Succ(s11, s12), Succ(s21, s22)) =>
-							val s = Succ(aux(s11, s21), aux(s12, s22))
-							cache((s1, s2)) = s
-							s
+						case (s1: Succ, s2: Succ) => Succ(s1.succs zip s2.succs map { t => aux(t._1, t._2) })
 					})
 				})
 			}
@@ -55,20 +62,18 @@ object MasterAutomaton {
 		@inline final def union(that: State): State = binaryOp(that, identity, Epsilon)
 
 		final def complement: State = {
-			val cache = mutable.Map[State, State]()
+			val buffer = mutable.Map[State, State]()
 
 			def aux(s: State): State = 
-				cache.getOrElse(s, s match {
+				buffer.getOrElseUpdate(s, s match {
 					case EmptySet => Epsilon
 					case Epsilon => EmptySet
-					case Succ(s1, s2) =>
-						val st = Succ(aux(s1), aux(s2))
-						cache(s) = st
-						st
+					case s: Succ => Succ(s.succs map aux)
 				})
 
 			aux(this)
 		}
+
 	}
 
 	object EmptySet extends State {
@@ -76,9 +81,9 @@ object MasterAutomaton {
 
 		protected[afl] val id = 0
 		val length = 0
-		val words = Set.empty[Seq[Boolean]]
+		val words = List.empty[List[List[Boolean]]]
 
-		def ofLength(length: Int): State = ((this: State) /: (1 to length)) { case (s, _) => Succ(s, s) }
+		def ofLength(length: Int): State = ((this: State) /: (1 to length)) { case (s, _) => Succ(List.fill(1 << dimension)(s)) }
 	}
 	
 	object Epsilon extends State {
@@ -86,49 +91,44 @@ object MasterAutomaton {
 
 		protected[afl] val id = 1
 		val length = 0
-		val words = Set(Seq.empty[Boolean])
+		val words = List(List.fill(dimension)(List.empty[Boolean]))
 	}
 	
-	final class Succ private(protected[afl] val id: Int, val succ0: State, val succ1: State) extends State {
-		require(succ0.length == succ1.length)
+	final class Succ private(protected[afl] val id: Int, val succs: List[State]) extends State {
+
+		// the number of successors must equal 2 ^ `self.dimension`
+		require(succs.length == 1 << dimension)
+
+		// all successors must have the same length
+		require(succs.groupBy(_.length).size == 1)
 		
-		override def toString = id + " [0 -> " + succ0.id + ", 1 -> " + succ1.id + "]"
+		override def toString = id + (succs zip chars(dimension) map { case (succ, c) =>
+			(c map { _ ? '1' | '0' } mkString "") + "->" + succ.id
+		}).mkString(" [", ", ", "]")
 
-		val length = succ0.length + 1
+		val length = // pick any successor, as they all have the same length
+			succs.head.length + 1
 
-		def words = {
-			val w0 = succ0.words
-			val w1 = succ1.words
-			(w0 map { false +: _ }) union (w1 map { true +: _ })
-		}
+		def words =
+			succs zip chars(dimension) >>= { case (s, c) =>
+				s.words map { w =>
+					c zip w map { case (h, t) => h :: t }
+				}
+			}
 	}
 
 	object Succ {
-		def apply(succ0: State, succ1: State): State = {
-			val succs = (succ0, succ1)
-			states.getOrElse(succs, {
-				val s = new Succ(counter, succ0, succ1)
-				Util.log("Generating new state: " + s)
-				counter += 1
-				states(succs) = s
-				s
-			})
-		}
-
-		def unapply(s: Succ): Option[(State, State)] = Some((s.succ0, s.succ1))
+		def apply(succs: List[State]): State = states.getOrElseUpdate(succs, {
+			val s = new Succ(counter, succs)
+			Util.log("Generating new state: " + s)
+			counter += 1
+			s
+		})
 	}
 
 	private var counter = 2
 
-	private val states = mutable.Map[(State, State), State]()
+	private val states = mutable.Map[List[State], State]()
 
 }
 
-class MultiDFA(start: MasterAutomaton.State) extends Automaton {
-
-	val length = start.length
-	val dimension = 1
-
-	def words = start.words map { Seq(_) }
-
-}
