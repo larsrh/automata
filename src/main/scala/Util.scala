@@ -15,7 +15,7 @@ object Util {
 		else
 			(0 /: seq) { case (acc, elem) => (elem ? 1 | 0) + 2 * acc }
 
-	def wordToIntWord(word: Seq[Seq[Boolean]]) = (word map seqToInt).mkString("(", ",", ")") 
+	def wordToIntWord(word: Seq[Seq[Boolean]]) = (word map seqToInt).mkString(" ") 
 
 	val charsBuffer = mutable.Map(0 -> List(List.empty[Boolean]))
 
