@@ -11,16 +11,27 @@ import Util._
 object Program {
 
 	case class Program(cmds: List[Command]) {
-		private def cmdK(cmd: Command) = kleisli((env: Environment) => env execute cmd)
+		// I tried using `Kleisli` here, but guess what, all those type annotations
+		// made it cumbersome.
 
-		private def mkKleisli = cmds.toNel map { nel => 
-			(cmdK(nel.head) /: nel.tail) { case (acc, cmd) => acc >=> cmdK(cmd) }
-		} getOrElse {
-			log("Warning: empty command list")
-			kleisli((env: Environment) => env.some)
+		private type CmdF = Environment => Option[(Variable, Environment)]
+
+		@inline private def mkCmd(cmd: Command): CmdF = (_ execute cmd)
+
+		private def andThen: (CmdF, Command) => CmdF = { case (f, cmd) =>
+			f andThen { _ flatMap { case (_, env) => mkCmd(cmd)(env) } }
 		}
 
-		def execute = mkKleisli(new Environment())
+		private def mkCmds = cmds.toNel map {
+			nel => (mkCmd(nel.head) /: nel.tail)(andThen)
+		} orElse {
+			Console.err println ("Error: empty command list")
+			None
+		}
+
+		def execute = mkCmds flatMap { _(new Environment()) }
+
+		def executeAndGet = execute flatMap { case (v, env) => env(v) }
 	}
 
 	type Command = (Variable, Expression)
@@ -59,7 +70,12 @@ object Program {
 			new Environment(vars.updated(c, a))
 		}
 
-		def execute(cmd: Command): Option[Environment] = {
+		/**
+		 * Applies the command `cmd` to this environment, and optionally
+		 * returns a pair of the last assigned variable (guaranteed to be
+		 * equal to `cmd._1`) and the updated environment.
+		 */
+		def execute(cmd: Command): Option[(Variable, Environment)] = {
 			val (v, expr) = cmd
 
 			val res = expr match {
@@ -96,7 +112,7 @@ object Program {
 					)
 			}
 
-			res map { r => this + ((v, r)) }
+			res map { r => (v, this + ((v, r))) }
 		}
 	}
 
