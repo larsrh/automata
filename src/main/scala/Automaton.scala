@@ -9,11 +9,13 @@ import Util._
 
 object MasterAutomaton {
 
+	type Automaton = MasterAutomaton#State 
+
 	private val buffer = mutable.Map[Int, MasterAutomaton]()
 
 	def apply(dim: Int) = buffer.getOrElseUpdate(dim, new MasterAutomaton(dim))
 
-	def fromEdges(start: Int, edges: Seq[(Int, Int, Seq[Seq[Boolean]])], end: Int, length: Int, dimension: Int): MasterAutomaton#State = {
+	def fromEdges(start: Int, edges: Seq[(Int, Int, Seq[Seq[Boolean]])], end: Int, length: Int, dimension: Int): Automaton = {
 		require(dimension > 0)
 		require(length >= 0)
 
@@ -76,7 +78,7 @@ final class MasterAutomaton private(val dimension: Int) { self =>
 				Succ(s :: List.fill((1 << dimension) - 1)(empty))
 			}
 
-		private def padMax[S <: St](that: S): (State, S) =
+		final def padMax[S <: St](that: S): (State, S) =
 			if (this.length < that.length)
 				(padTo(that.length), that)
 			else if (this.length > that.length)
