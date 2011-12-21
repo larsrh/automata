@@ -1,3 +1,5 @@
+import AssemblyKeys._
+
 name := "afl-assignment"
 
 version := "0.1"
@@ -12,3 +14,7 @@ scalacOptions ++= Seq(
 
 libraryDependencies +=
 	"org.scalaz" %% "scalaz-core" % "6.0.3"
+
+mainClass := Some("edu.tum.cs.afl.Launcher")
+
+seq(assemblySettings: _*)
