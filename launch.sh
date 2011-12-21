@@ -10,6 +10,9 @@ OLDDIR="$(pwd)"
 cd "$(dirname "$0")" || die "Could not change directory"
 
 if [ ! -e "target/afl-assignment-assembly-0.1.jar" ]; then
+	echo "*** Build process starting"
+	echo "*** Please measure only *subsequent* runs of this program."
+	echo
 	echo "*** [1/3] Please wait, the build tool is frobnicating the flux capacitor."
 	echo "*** Depending on your internet connection, this might take a while."
 	echo
