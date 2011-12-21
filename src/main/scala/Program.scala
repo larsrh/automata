@@ -76,6 +76,8 @@ object Program {
 		 * equal to `cmd._1`) and the updated environment.
 		 */
 		def execute(cmd: Command): Option[(Variable, Environment)] = {
+			log("Executing " + cmd)
+
 			val (v, expr) = cmd
 
 			val res = expr match {
