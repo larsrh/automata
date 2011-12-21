@@ -50,6 +50,12 @@ final class MasterAutomaton private(val dimension: Int) { self =>
 
 	require(dimension >= 0)
 
+	/**
+	 * The type of all `State`s, regardless of the underlying `MasterAutomaton`
+	 * object. Use `St` whenever possible.
+	 */
+	type St = MasterAutomaton#State
+
 	sealed trait State {
 
 		final def automaton: self.type = self
@@ -70,12 +76,22 @@ final class MasterAutomaton private(val dimension: Int) { self =>
 				Succ(s :: List.fill((1 << dimension) - 1)(empty))
 			}
 
-		private def binaryOp(that: State, onEmptySet: State => State, onEpsilon: => State): State = {
-			require(this.length == that.length)
+		private def padMax[S <: St](that: S): (State, S) =
+			if (this.length < that.length)
+				(padTo(that.length), that)
+			else if (this.length > that.length)
+				(this, that.padTo(length).asInstanceOf[S]) // TODO get rid of cast
+			else
+				(this, that)
+
+		private def binaryOp(that: St, onEmptySet: State => State, onEpsilon: => State): State = {
+			require(this.automaton eq that.automaton)
+
+			val (_this, _that) = padMax(that.asInstanceOf[State])
 			val buffer = mutable.Map[(State, State), State]()
 
 			def aux(s1: State, s2: State): State = {
-				assert(this.length == that.length)
+				assert(s1.length == s2.length)
 
 				buffer.getOrElseUpdate((s1, s2),
 					buffer.getOrElse((s2, s1), ((s1, s2): @unchecked) match {
@@ -87,12 +103,12 @@ final class MasterAutomaton private(val dimension: Int) { self =>
 				)
 			}
 
-			aux(this, that)
+			aux(_this, _that)
 		}
 
-		@inline final def intersect(that: State): State = binaryOp(that, _ => EmptySet, Epsilon)
+		@inline final def intersect(that: St): State = binaryOp(that, _ => EmptySet, Epsilon)
 
-		@inline final def union(that: State): State = binaryOp(that, identity, Epsilon)
+		@inline final def union(that: St): State = binaryOp(that, identity, Epsilon)
 
 		final def complement: State = {
 			val buffer = mutable.Map[State, State]()
@@ -107,17 +123,15 @@ final class MasterAutomaton private(val dimension: Int) { self =>
 			aux(this)
 		}
 
-		final def product(that: MasterAutomaton#State): MasterAutomaton#State = {
-			require(this.length == that.length)
+		final def product(that: St): St = {
+			val (_this, _that) = padMax(that)
 
-			type State = MasterAutomaton#State
-			type Succ = MasterAutomaton#Succ
 			val master = MasterAutomaton(that.automaton.dimension + dimension)
 			val thatMaster = that.automaton
 			
-			val buffer = mutable.Map[(State, State), master.State]()
+			val buffer = mutable.Map[(State, St), master.State]()
 
-			def aux(s1: State, s2: State): master.State = {
+			def aux(s1: State, s2: St): master.State = {
 				assert(s1.length == s2.length)
 
 				buffer.getOrElseUpdate((s1, s2),
@@ -130,29 +144,27 @@ final class MasterAutomaton private(val dimension: Int) { self =>
 						master.Epsilon
 					else
 						master.Succ(
-							for (succ1 <- s1.asInstanceOf[Succ].succs; succ2 <- s2.asInstanceOf[Succ].succs)
+							for (succ1 <- s1.asInstanceOf[Succ].succs; succ2 <- s2.asInstanceOf[MasterAutomaton#Succ].succs)
 							yield aux(succ1, succ2)
 						)
 				)
 			}
 
-			aux(this, that)
+			aux(_this, _that)
 		}
 
-		final def join(that: MasterAutomaton#State): MasterAutomaton#State = {
-			require(this.length == that.length)
+		final def join(that: St): St = {
 			require(dimension > 0)
 			require(that.automaton.dimension > 0)
 			require(dimension + that.automaton.dimension > 2)
 
-			type State = MasterAutomaton#State
-			type Succ = MasterAutomaton#Succ
+			val (_this, _that) = padMax(that)
 			val master = MasterAutomaton(that.automaton.dimension + dimension - 2)
 			val thatMaster = that.automaton
 			
-			val buffer = mutable.Map[(State, State), master.State]()
+			val buffer = mutable.Map[(State, St), master.State]()
 
-			def aux(s1: State, s2: State): master.State = {
+			def aux(s1: State, s2: St): master.State = {
 				assert(s1.length == s2.length)
 				
 				buffer.getOrElseUpdate((s1, s2),
@@ -167,7 +179,7 @@ final class MasterAutomaton private(val dimension: Int) { self =>
 						// `false` as the first element (`true` for the second half).
 						// For `s1`, every even successor has `false` as the last element.
 						val succs1 = s1.asInstanceOf[Succ].succs
-						val succs2 = s2.asInstanceOf[Succ].succs
+						val succs2 = s2.asInstanceOf[MasterAutomaton#Succ].succs
 
 						val (first, second) = succs2 splitAt (succs2.length / 2)
 
@@ -183,26 +195,24 @@ final class MasterAutomaton private(val dimension: Int) { self =>
 				)
 			}
 
-			aux(this, that)
+			aux(_this, _that)
 		}
 
-		final def section(that: MasterAutomaton#State, pos: Int): MasterAutomaton#State = {
-			require(this.length == that.length)
+		final def section(that: St, pos: Int): St = {
 			require(0 < pos && pos <= length)
 			require(dimension > 0)
 
-			type State = MasterAutomaton#State
-			type Succ = MasterAutomaton#Succ
+			val (_this, _that) = padMax(that)
 			val master = MasterAutomaton(dimension - 1)
 			val thatMaster = that.automaton
 			
-			val buffer = mutable.Map[(State, State), master.State]()
+			val buffer = mutable.Map[(State, St), master.State]()
 
-			def aux(s1: State, s2: State): master.State = {
+			def aux(s1: State, s2: St): master.State = {
 				assert(s1.length == s2.length)
 				
 				// The pairing strategy is almost the same as in `projection`.
-				def groupedUnion(pos: Int, succs: List[State], succFalse: State, succTrue: State): List[master.State] = {
+				def groupedUnion(pos: Int, succs: List[State], succFalse: St, succTrue: St): List[master.State] = {
 					val half = succs.length / 2
 					val (first, second) = succs splitAt half
 					if (pos == 1)
@@ -219,7 +229,7 @@ final class MasterAutomaton private(val dimension: Int) { self =>
 						master.Epsilon
 					else {
 						val succs = s1.asInstanceOf[Succ].succs
-						val List(succFalse, succTrue) = s2.asInstanceOf[Succ].succs
+						val List(succFalse, succTrue) = s2.asInstanceOf[MasterAutomaton#Succ].succs
 						master.Succ(groupedUnion(pos, succs, succFalse, succTrue))
 					}
 				)
@@ -230,7 +240,7 @@ final class MasterAutomaton private(val dimension: Int) { self =>
 				master.EmptySet ofLength length
 			}
 			else {
-				aux(this, that)
+				aux(_this, _that)
 			}
 		}
 
