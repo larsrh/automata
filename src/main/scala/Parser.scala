@@ -20,7 +20,7 @@ object Parser {
 
 	object ProgramParser extends Commons {
 
-		def program: Parser[Program] = rep1(command)
+		def program: Parser[Program] = rep1(command) ^^ { cmds => Program(cmds) }
 
 		def command: Parser[Command] = (variable <~ """=\s*""".r) ~ expression <~ """;\s*""".r ^^ { case v ~ e => (v, e) }
 
