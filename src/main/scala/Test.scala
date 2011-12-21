@@ -101,7 +101,55 @@ object Test extends App {
 
 	}
 
-	Three // force initialization
+	object Parsers {
+
+		import Parser._
+		import Two._
+
+		val f1 =
+"""2
+2
+digraph G {
+4[shape=diamond];
+1[peripheries=2];
+4 -> 2 [label="10 "];
+4 -> 3 [label="11 "];
+2 -> 1 [label="11 "];
+3 -> 1 [label="00 "];
+}"""
+
+		val af1 = parseAutomaton(f1)
+		val a = af1.fold(sys.error, identity)
+		Two.assertContains(a, (3, 1), (2, 2))
+
+		val f2 =
+"""1
+1
+digraph G {
+2[shape=diamond];
+1[peripheries=2];
+2 -> 1 [label="0 1 "];
+}
+"""
+
+		val af2 = parseAutomaton(f2)
+		val b = af2.fold(sys.error, identity)
+		One.assertContains(b, 0, 1)
+
+		val c = a.section(b, 2)
+		One.assertContains(c, 3)
+
+		val d = c union b
+		One.assertContains(d, 0, 1, 3)
+
+		val e = d product c
+		Two.assertContains(e, (0, 3), (1, 3), (3, 3))
+		
+	}
+
+	// force initialization
+	Three
+	Parsers
 
 }
 
