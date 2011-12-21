@@ -1,0 +1,7 @@
+2
+1
+digraph G {
+2[shape=diamond];
+1[peripheries=2];
+2 -> 1 [label="11 00 "];
+}

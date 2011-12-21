@@ -1,0 +1,8 @@
+a = read f3 ;
+a = negation a ;
+b = read f4 ;
+b = join b a ;
+a = read f5 ;
+a = intersection a b ;
+b = project a 2 ;
+
