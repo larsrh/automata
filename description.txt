@@ -1,0 +1,76 @@
+Automata and Formal Languages -- Programming Assignment
+=======================================================
+
+Lars Hupel
+
+This program is written in Scala using the ``Simple Build Tool'' [1]. For
+bootstrapping purposes, this tool basically downloads the whole internet which
+may take a while. Please obtain a cup of tea beforehand.
+
+Build & Run instructions
+------------------------
+
+To make it simple, there is a script `launch.sh` in the root of the repository.
+On the first run, it does all necessary steps.
+
+Example:
+
+# change to the directories where your example files are
+$ cd testfiles
+
+# the structure of this folder has to be *flat*
+$ ls
+f1  f2  f3  f4  f5  input  input2
+
+# start the program from this directory and pass the names of as many input
+# files as you wish
+$ $REPO_ROOT/launch.sh input input2
+
+# the launcher fetches all dependencies, builds the program and the
+# documentation and launches the program afterwards
+
+# the documentation will be in the folder $REPO_ROOT/target/scala-2.9.1/api
+
+# the JAR will be generated as $REPO_ROOT/target/afl-assignment-assembly-0.1.jar
+# It is executable in the same way as the launcher (with the same working
+# directory):
+$ $PATH_TO_JAR input input2
+
+Extracting from the zip bundle
+------------------------------
+
+If you extracted the files from the zip bundle, note that it doesn't contain the
+documentation. To fix that, change to the root directory of the extracted files
+and run:
+
+# clean the build products
+$ ./sbt clean
+
+# rebuild
+$ ./launch.sh
+
+Implementation overview
+-----------------------
+
+Following the ``Simple Build Tool'' conventions, the source code is in the
+folder src/main/scala and consists of the following files:
+
+* `Parser.scala` parsers for the input program and the automata based on the
+  Scala parser combinator library which is described in [2].
+
+* `Automaton.scala` models the master automaton for a specified dimension of the
+  alphabet, as described in the lecture notes.
+
+* `Program.scala` contains the representation of the abstract syntax tree of the
+  input programs. It makes heavy use of the Haskell-inspired ``scalaz'' library
+  [3].
+
+* `Util.scala` holds various utility functions.
+
+* `Launcher.scala` provides the entry point for the program operation.
+
+* `Test.scala` contains some test cases.
+
+[1] <https://github.com/harrah/xsbt>
+[2] <http://www.artima.com/pins1ed/combinator-parsing.html>
+[3] <http://code.google.com/p/scalaz/>
