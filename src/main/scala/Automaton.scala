@@ -7,14 +7,35 @@ import Scalaz._
 
 import Util._
 
+/**
+ * Utility object. Buffers master automata (instances of `MasterAutomaton`)
+ * and obtains states which have been parsed from input.
+ */
 object MasterAutomaton {
 
+	/**
+	 * Common type of all `State`s in all `MasterAutomaton` instances.
+	 * Internally, they are called "states", but this doesn't have to
+	 * be exposed to interface users. For them, a "state" behaves like
+	 * a regular automaton.
+	 */
 	type Automaton = MasterAutomaton#State 
 
 	private val buffer = mutable.Map[Int, MasterAutomaton]()
 
+	/**
+	 * Obtains a `MasterAutomaton` from the buffer of desired dimension
+	 * or creates a new one and updates the buffer.
+	 */
 	def apply(dim: Int) = buffer.getOrElseUpdate(dim, new MasterAutomaton(dim))
 
+	/**
+	 * Produces a state corresponding to `start` in the `MasterAutomaton`
+	 * of the specified dimension. May fail if `start` does not accept a
+	 * fixed-length language.
+	 * @param dimension must be greater than 0
+	 * @param length must be non-negative
+	 */
 	def fromEdges(start: Int, edges: Seq[(Int, Int, Seq[Seq[Boolean]])], end: Int, length: Int, dimension: Int): Automaton = {
 		require(dimension > 0)
 		require(length >= 0)
@@ -48,36 +69,64 @@ object MasterAutomaton {
 
 }
 
+/**
+ * The master automaton, as described in the lecture notes. Lazily contains
+ * all possible states for all possible fixed-length languages with the
+ * specified dimension.
+ * @param dimension must be non-negative
+ */
 final class MasterAutomaton private(val dimension: Int) { self =>
 
 	require(dimension >= 0)
 
 	/**
-	 * The type of all `State`s, regardless of the underlying `MasterAutomaton`
-	 * object. Use `St` whenever possible.
+	 * Abbreviation for `MasterAutomaton#State` 
+	 *
+	 * This is the same as `MasterAutomaton.State`.
 	 */
 	type St = MasterAutomaton#State
 
+	/**
+	 * Common behaviour for any state in this automaton.
+	 */
 	sealed trait State {
 
+		/** Explicit reference to parent master automaton. */
 		final def automaton: self.type = self
 
 		protected[afl] def id: Int
+
+		/** The length of the words which are accepted by this state. */
 		def length: Int
 
 		/**
 		 * The set of all words accepted by this automaton.
-		 * @return a list of lists of length `self.dimension` containing lists
-		 *         of length `this.length`
+		 *
+		 * The value of this function does not depend on state but is neither
+		 * precomputed nor cached. Avoid intermediate calls.
+		 * @return A list of lists of length `self.dimension` containing lists
+		 *         of length `this.length`. The result is in natural ordering.
 		 */
 		def words: List[List[List[Boolean]]]
 
+		/**
+		 * Prepends a number of zeroes to this state, producing a new state.
+		 * @param newLength the desired length of the new state which must be greater than
+		 *        or equal to the current length
+		 * @return a new state `s` with `s.length == newLength` if `newLength` is greater
+		 *         than or equal to the current length, this state otherwise
+		 */
 		final def padTo(newLength: Int): State =
 			(this /: (length until newLength)) { case (s, i) =>
 				val empty = EmptySet ofLength i
 				Succ(s :: List.fill((1 << dimension) - 1)(empty))
 			}
 
+		/**
+		 * Determines the maximum length of `this` and `that` and pads the
+		 * state with the smaller length.
+		 * @return a pair `(s, t)` such that `s.length == t.length`
+		 */
 		final def padMax[S <: St](that: S): (State, S) =
 			if (this.length < that.length)
 				(padTo(that.length), that)
@@ -86,6 +135,13 @@ final class MasterAutomaton private(val dimension: Int) { self =>
 			else
 				(this, that)
 
+		/**
+		 * Common abstraction for union and intersection. The behavior if
+		 * either `this` or `that` is empty or both are epsilon can be 
+		 * specified. The recursion is the same in both cases.
+		 * @param that a state of the same master automaton (which is not
+		 *        expressed in the type -- may fail at runtime)
+		 */
 		private def binaryOp(that: St, onEmptySet: State => State, onEpsilon: => State): State = {
 			require(this.automaton eq that.automaton)
 
@@ -108,10 +164,13 @@ final class MasterAutomaton private(val dimension: Int) { self =>
 			aux(_this, _that)
 		}
 
+		/** State intersection. */
 		@inline final def intersect(that: St): State = binaryOp(that, _ => EmptySet, Epsilon)
 
+		/** State union. */
 		@inline final def union(that: St): State = binaryOp(that, identity, Epsilon)
 
+		/** State complement. */
 		final def complement: State = {
 			val buffer = mutable.Map[State, State]()
 
@@ -125,6 +184,10 @@ final class MasterAutomaton private(val dimension: Int) { self =>
 			aux(this)
 		}
 
+		/**
+		 * State product.
+		 * @return a state `s` with the sum of the dimensions of `this` and `that`
+		 */
 		final def product(that: St): St = {
 			val (_this, _that) = padMax(that)
 
@@ -155,6 +218,13 @@ final class MasterAutomaton private(val dimension: Int) { self =>
 			aux(_this, _that)
 		}
 
+		/**
+		 * State join.
+		 * The sum of the dimensions of `this` and `that` must be greater than 0.
+		 * @param that a state with positive dimension
+		 * @return a state `s` with the sum of the dimension of `this` and `that`
+		 *         decreased by 2.
+		 */
 		final def join(that: St): St = {
 			require(dimension > 0)
 			require(that.automaton.dimension > 0)
@@ -200,8 +270,16 @@ final class MasterAutomaton private(val dimension: Int) { self =>
 			aux(_this, _that)
 		}
 
+		/**
+		 * State section.
+		 * Side effects: logs a warning if `that` has a dimension not equal to 1
+		 * @param that a state which should have a dimension of 1
+		 * @param pos a number from 1 to the dimension of `this` (inclusive)
+		 * @return a state `s` with the dimension of `this` decreased by 1,
+		 *         which is empty if `that` has a dimension not equal to 1
+		 */
 		final def section(that: St, pos: Int): St = {
-			require(0 < pos && pos <= length)
+			require(0 < pos && pos <= dimension)
 			require(dimension > 0)
 
 			val (_this, _that) = padMax(that)
@@ -246,7 +324,12 @@ final class MasterAutomaton private(val dimension: Int) { self =>
 			}
 		}
 
-		final def projection(pos: Int): MasterAutomaton#State = {
+		/**
+		 * State projection. The dimension of `this` must be greater than 1.
+		 * @param pos a number from 1 to the dimension of `this` (inclusive)
+		 * @return a state `s` with the dimension of `this` decreased by 1
+		 */
+		final def projection(pos: Int): St = {
 			require(0 < pos && pos <= dimension)
 			require(dimension > 1)
 
@@ -282,6 +365,12 @@ final class MasterAutomaton private(val dimension: Int) { self =>
 
 	}
 
+	/**
+	 * The state representing the empty set.
+	 *
+	 * This state is only valid for words of length 0. For greater lengths,
+	 * this state has to be padded (preferably via `ofLength`).
+	 */
 	object EmptySet extends State {
 		override def toString = "<empty>"
 
@@ -289,9 +378,17 @@ final class MasterAutomaton private(val dimension: Int) { self =>
 		val length = 0
 		val words = List.empty[List[List[Boolean]]]
 
+		/**
+		 * Produces a state which accepts no words of the desired length.
+		 * @param length must be a non-negative number
+		 * @return a state `s` such that `s.length == length` and `s.words` empty
+		 */
 		def ofLength(length: Int): State = ((this: State) /: (1 to length)) { case (s, _) => Succ(List.fill(1 << dimension)(s)) }
 	}
-	
+
+	/**
+	 * The "final" state which accepts epsilon.
+	 */
 	object Epsilon extends State {
 		override def toString = "<epsilon>"
 
@@ -300,20 +397,31 @@ final class MasterAutomaton private(val dimension: Int) { self =>
 		val words = List(List.fill(dimension)(List.empty[Boolean]))
 	}
 	
+	/**
+	 * A non-final state which reads an input character and advances to the
+	 * corresponding successor state.
+	 *
+	 * The resulting `length` of this state is the common length of the
+	 * successor states increased by 1.
+	 *
+	 * This state doesn't store the characters of the alphabet, as the
+	 * successors must have a fixed ordering. For a dimension of 2, this
+	 * would be: [0,0], [0,1], [1,0], [1,1].
+	 *
+	 * @param succs A list containing 2 to the power of the dimension of `this`
+	 *        successor states. All successors must have the same `length`. The
+	 *        list must be in natural order with respect to the corresponding
+	 *        character.
+	 */
 	final class Succ private(protected[afl] val id: Int, val succs: List[State]) extends State {
-
-		// the number of successors must equal 2 ^ `self.dimension`
 		require(succs.length == 1 << dimension)
-
-		// all successors must have the same length
 		require(succs.groupBy(_.length).size == 1)
 		
 		override def toString = id + (succs zip chars(dimension) map { case (succ, c) =>
 			(c map { _ ? '1' | '0' } mkString "") + "->" + succ.id
 		}).mkString(" [", ", ", "]")
 
-		val length = // pick any successor, as they all have the same length
-			succs.head.length + 1
+		val length = succs.head.length + 1
 
 		def words =
 			succs zip chars(dimension) >>= { case (s, c) =>
@@ -323,7 +431,16 @@ final class MasterAutomaton private(val dimension: Int) { self =>
 			}
 	}
 
+	/**
+	 * Utility object which queries the buffer of states and updates it
+	 * if necessary.
+	 */
 	object Succ {
+
+		/**
+		 * Obtains a `State` from the buffer with the desired successors
+		 * or creates a new `State` and updates the buffer.
+		 */
 		def apply(succs: List[State]): State = states.getOrElseUpdate(succs, {
 			val s = new Succ(counter, succs)
 			Util.log("Generating new state: " + s)

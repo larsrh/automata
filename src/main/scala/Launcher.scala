@@ -6,6 +6,7 @@ import java.io.{PrintWriter, FileOutputStream}
 import MasterAutomaton._
 import Util._
 
+/** Entry point for the application */
 object Launcher extends App {
 
 	if (args.length < 1)

@@ -3,14 +3,24 @@ package edu.tum.cs.afl
 import util.parsing.combinator.RegexParsers
 import util.matching.Regex
 
+/**
+ * Umbrella object for the parsers, based on the Scala combinator parsing
+ * library.
+ */
 object Parser {
 
 	import Program._
 
+	/** Utilities. */
 	trait Commons extends RegexParsers {
 
+		/** Parses a natural number followed by an arbitrary number of whitespace characters. */
 		def number: Parser[Int] = """[0-9]+\s*""".r ^^ {s => s.trim.toInt}
 
+		/**
+		 * Invokes the specified parser and transforms the parse result to an
+		 * object containing either an error message or the output.
+		 */
 		final def parseAll[T](parser: this.type => Parser[T], input: String): Either[String, T] = parseAll(parser(this), input) match {
 			case NoSuccess(msg, _) => Left(msg)
 			case Success(result, _) => Right(result)
@@ -18,6 +28,7 @@ object Parser {
 
 	}
 
+	/** The parser for programs. **/
 	object ProgramParser extends Commons {
 
 		def program: Parser[Program] = rep1(command) ^^ { cmds => Program(cmds) }
@@ -44,6 +55,7 @@ object Parser {
 
 	}
 
+	/** The parser for automata. **/
 	object AutomatonParser extends Commons {
 
 		import Function._
