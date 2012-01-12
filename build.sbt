@@ -19,3 +19,5 @@ libraryDependencies +=
 mainClass := Some("edu.tum.cs.afl.Launcher")
 
 seq(assemblySettings: _*)
+
+seq(antlrSettings: _*)
