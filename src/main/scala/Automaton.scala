@@ -232,6 +232,41 @@ final class MasterAutomaton private(val dimension: Int) { self =>
 		}
 
 		/**
+		 * Inserts an additional character before the specified position.
+		 * @param pos a number from 0 to the dimension of `this` (inclusive)
+		 * @return a state with the dimension of `this` increased by 1 and
+		 *         the same length as `this`
+		 */
+		final def insert(pos: Int): St = {
+			require(0 <= pos && pos <= dimension)
+
+			val master = MasterAutomaton(dimension + 1)
+			val buffer = mutable.Map[State, master.State]()
+
+			def aux(s: State): master.State = {
+				def explode(pos: Int, succs: List[State]): List[State] =
+					if (pos == 0)
+						succs ++ succs
+					else {
+						val half = succs.length / 2
+						val (first, second) = succs splitAt half
+						explode(pos - 1, first) ++ explode(pos - 1, second)
+					}
+
+				buffer.getOrElseUpdate(s, {
+					if (s == EmptySet)
+						master.EmptySet
+					else if (s == Epsilon)
+						master.Epsilon
+					else
+						master.Succ(explode(pos, s.asInstanceOf[Succ].succs) map aux)
+				})
+			}
+
+			aux(this)
+		}
+
+		/**
 		 * State section.
 		 * Side effects: logs a warning if `that` has a dimension not equal to 1
 		 * @param that a state which should have a dimension of 1

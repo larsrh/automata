@@ -78,6 +78,9 @@ object Test extends App {
 		val compl = s2.complement
 		assertContains(compl, (0, 0), (0, 1), (1, 0))
 
+		val inserted = One.union insert 1
+		assertContains(inserted, (for (x <- 0 to 2; y <- 0 to 3) yield (x, y)): _*)
+
 	}
 
 	object Three {
