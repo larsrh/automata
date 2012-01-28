@@ -24,8 +24,12 @@ f1  f2  f3  f4  f5  formula0  formula1  input  input2
 
 # start the program from this directory and pass the names of as many input
 # files as you wish
-# Usage:
-# ((--program | --presburger <length> [y|n]) <file>*)*
+
+# run without parameters to see the usage
+$ $REPO_ROOT/launch.sh
+Usage: ((--program | --presburger <length> [y|n]) <file>*)*
+
+# example:
 $ $REPO_ROOT/launch.sh --program input input2 --presburger 3 y formula0
 
 # the launcher fetches all dependencies, builds the program and the
@@ -50,6 +54,13 @@ $ ./sbt clean
 
 # rebuild
 $ ./launch.sh
+
+Fun fact
+--------
+
+The JAR containing the program and all required libraries (ANTLR, Scalaz, ...)
+consists of more than 100 packages and 10,000 class files. Dear JVM class
+loader, have fun loading that mess.
 
 Implementation overview
 -----------------------

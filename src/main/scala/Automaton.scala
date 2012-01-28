@@ -271,7 +271,7 @@ final class MasterAutomaton private(val dimension: Int) { self =>
 		 * Side effects: logs a warning if `that` has a dimension not equal to 1
 		 * @param that a state which should have a dimension of 1
 		 * @param pos a number from 1 to the dimension of `this` (inclusive)
-		 * @return a state `s` with the dimension of `this` decreased by 1,
+		 * @return a state with the dimension of `this` decreased by 1,
 		 *         which is empty if `that` has a dimension not equal to 1
 		 */
 		final def section(that: St, pos: Int): St = {
