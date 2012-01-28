@@ -321,13 +321,13 @@ final class MasterAutomaton private(val dimension: Int) { self =>
 		}
 
 		/**
-		 * State projection. The dimension of `this` must be greater than 1.
+		 * State projection. The dimension of `this` must be greater than 0.
 		 * @param pos a number from 1 to the dimension of `this` (inclusive)
 		 * @return a state `s` with the dimension of `this` decreased by 1
 		 */
 		final def projection(pos: Int): St = {
 			require(0 < pos && pos <= dimension)
-			require(dimension > 1)
+			require(dimension > 0)
 
 			val master = MasterAutomaton(dimension - 1)
 			val buffer = mutable.Map[State, master.State]()

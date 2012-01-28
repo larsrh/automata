@@ -4,6 +4,7 @@ import io.Source
 import annotation.elidable
 import elidable._
 import collection.mutable
+import math.BigInt
 
 import java.io.{PrintWriter, FileOutputStream}
 
@@ -19,6 +20,13 @@ object Util {
 			-1
 		else
 			(0 /: seq) { case (acc, elem) => (elem ? 1 | 0) + 2 * acc }
+
+	/** Converts a sequence of `Boolean`s in MSBF order to a `BigInt`. */
+	def seqToBigInt(seq: Seq[Boolean]): BigInt =
+		if (seq.isEmpty)
+			BigInt(-1)
+		else
+			(BigInt(0) /: seq) { case (acc, elem) => BigInt(elem ? 1 | 0) + BigInt(2) * acc }
 
 	/**
 	 * Converts a sequence of a sequence in MSBF order to a string representation
