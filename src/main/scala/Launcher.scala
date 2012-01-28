@@ -1,7 +1,7 @@
 package edu.tum.cs.afl
 
-import io.Source
-import java.io.{PrintWriter, FileOutputStream}
+import scalaz._
+import Scalaz._
 
 import MasterAutomaton._
 import Util._
@@ -9,39 +9,53 @@ import Util._
 /** Entry point for the application */
 object Launcher extends App {
 
-	if (args.length < 1)
-		Console.err println "Warning: Nothing to do. Please specify at least one input file"
-	
-	for (f <- args) {
-		try {
-			val contents = Source fromFile f mkString
-			val parseResult = Parser parseProgram contents
-
-			parseResult.fold(
-				err => {
-					log("Error in file " + f + ": " + err)
-					sys error ("parsing file " + f + " failed")
-				},
-				success => {
-					val stream = new PrintWriter(new FileOutputStream(f + ".txt"))
-					val result = success.executeAndGet
-					result match {
-						case None =>
-							sys error "program runtime error"
-
-						case Some(automaton) =>
-							for (w <- automaton.words)
-								stream println (wordToIntWord(w))
-					}
-					stream.flush()
-					stream.close()
-				}
-			)
-		}
-		catch {
-			case ex: Exception =>
-				Console.err println ("Error in file " + f + ": " + ex)
-		}
+	def usage() {
+		Console.err println "Usage: ((--program | --presburger <length> [y|n]) <file>*)*"
 	}
+
+	type Consumer = List[String] =>? Unit
+
+	def switchToOr(pf: Consumer) = switchTo orElse pf orElse doNothing
+
+	def processProgram: Consumer = switchToOr {
+		case file :: tail =>
+			val result = for (
+				parsed <- programs.Parser.parseProgram(readFile(file));
+				automaton <- parsed.executeAndGet toSuccess "program runtime error"
+			) yield	writeFile(file + ".txt", automaton.words map wordToIntWord)
+
+			result.fail.toOption foreach { msg => Console.err println ("Error in file " + file + ": " + msg) }
+
+			processProgram(tail)
+	}
+
+	def processPresburger(length: Int, output: Boolean) = switchToOr {
+		case file :: tail =>
+			sys error "not implemented yet"
+	}
+
+	def switchTo: Consumer = {
+		case "--program" :: tail => processProgram(tail)
+		case "--presburger" :: num :: tail =>
+			val n = num.toInt
+			tail match {
+				case "y" :: rest => processPresburger(n, true)(rest)
+				case "n" :: rest => processPresburger(n, false)(rest)
+				case rest => processPresburger(n, false)(rest)
+			}
+		case "--presburger" :: _ =>
+			Console.err println "Not enough parameters for --presburger"
+			usage()
+	}
+
+	def doNothing: Consumer = {
+		case Nil =>
+	}
+
+
+	if (args.length < 1)
+		usage()
+	
+	switchTo lift args.toList getOrElse usage()
 
 }

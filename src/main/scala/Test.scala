@@ -104,7 +104,7 @@ object Test extends App {
 
 	object Parsers {
 
-		import Parser._
+		import programs.Parser._
 		import Two._
 
 		val f1 =

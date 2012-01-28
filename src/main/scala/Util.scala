@@ -1,8 +1,11 @@
 package edu.tum.cs.afl
 
+import io.Source
 import annotation.elidable
 import elidable._
 import collection.mutable
+
+import java.io.{PrintWriter, FileOutputStream}
 
 import scalaz._
 import Scalaz._
@@ -34,5 +37,16 @@ object Util {
 
 	@elidable(FINE)
 	def log(x: Any) = Console.err println x
+
+	type =>?[-A, +B] = PartialFunction[A, B]
+
+	def readFile(file: String) = Source fromFile file mkString
+	
+	def writeFile(file: String, lines: Seq[String]) = {
+		val stream = new PrintWriter(new FileOutputStream(file))
+		lines foreach { stream println }
+		stream.flush()
+		stream.close()
+	}
 
 }

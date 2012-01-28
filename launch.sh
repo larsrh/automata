@@ -42,7 +42,7 @@ fi
 
 cd "$OLDDIR" || die "Could not change directory"
 
-echo "*** Processing files $@"
+echo "*** Processing"
 echo
 
 time java -jar "$(dirname "$0")/target/afl-assignment-assembly-0.1.jar" "$@"

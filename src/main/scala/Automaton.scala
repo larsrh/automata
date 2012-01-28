@@ -1,6 +1,6 @@
 package edu.tum.cs.afl
 
-import collection.{mutable, breakOut}
+import collection.mutable
 
 import scalaz._
 import Scalaz._
@@ -8,8 +8,7 @@ import Scalaz._
 import Util._
 
 /**
- * Utility object. Buffers master automata (instances of `MasterAutomaton`)
- * and obtains states which have been parsed from input.
+ * Utility object to buffer master automata (instances of `MasterAutomaton`).
  */
 object MasterAutomaton {
 
@@ -28,44 +27,6 @@ object MasterAutomaton {
 	 * or creates a new one and updates the buffer.
 	 */
 	def apply(dim: Int) = buffer.getOrElseUpdate(dim, new MasterAutomaton(dim))
-
-	/**
-	 * Produces a state corresponding to `start` in the `MasterAutomaton`
-	 * of the specified dimension. May fail if `start` does not accept a
-	 * fixed-length language.
-	 * @param dimension must be greater than 0
-	 * @param length must be non-negative
-	 */
-	def fromEdges(start: Int, edges: Seq[(Int, Int, Seq[Seq[Boolean]])], end: Int, length: Int, dimension: Int): Automaton = {
-		require(dimension > 0)
-		require(length >= 0)
-
-		val transitions = mutable.Map[(Int, Seq[Boolean]), mutable.Set[Int]]()
-		val master = MasterAutomaton(dimension)
-		val buffer = mutable.Map[Set[Int], master.State]()
-
-		def aux(len: Int, states: Set[Int]): master.State = buffer.getOrElse(states, {
-			// we don't use `getOrElseUpdate` here because buffering `(len, states)` pairs
-			// has too much overhead as every `states` set has an unique `len` (except the
-			// empty set, which may occur as the trap state)
-			if (states.isEmpty)
-				master.EmptySet ofLength len
-			else if (states contains end)
-				master.Epsilon
-			else {
-				val res = master.Succ(chars(dimension) map { c =>
-					aux(len-1, states.flatMap(s => transitions.getOrElse((s, c), Set.empty[Int]))(breakOut))
-				})
-				buffer(states) = res
-				res
-			}
-		})
-
-		for ((from, to, chars) <- edges; char <- chars)
-			transitions.getOrElseUpdate((from, char), mutable.Set()) += to
-
-		aux(length, Set(start))
-	}
 
 }
 

@@ -1,7 +1,14 @@
-package edu.tum.cs.afl
+package edu.tum.cs.afl.programs
 
+import collection.{mutable, breakOut}
 import util.parsing.combinator.RegexParsers
 import util.matching.Regex
+
+import scalaz._
+import Scalaz._
+
+import edu.tum.cs.afl.MasterAutomaton
+import edu.tum.cs.afl.Util
 
 /**
  * Umbrella object for the parsers, based on the Scala combinator parsing
@@ -21,9 +28,9 @@ object Parser {
 		 * Invokes the specified parser and transforms the parse result to an
 		 * object containing either an error message or the output.
 		 */
-		final def parseAll[T](parser: this.type => Parser[T], input: String): Either[String, T] = parseAll(parser(this), input) match {
-			case NoSuccess(msg, _) => Left(msg)
-			case Success(result, _) => Right(result)
+		final def parseAll[T](parser: this.type => Parser[T], input: String): Validation[String, T] = parseAll(parser(this), input) match {
+			case NoSuccess(msg, _) => msg.fail
+			case Success(result, _) => result.success
 		}
 
 	}
@@ -58,9 +65,48 @@ object Parser {
 	/** The parser for automata. **/
 	object AutomatonParser extends Commons {
 
+		import MasterAutomaton._
 		import Function._
 
-		def automaton: Parser[MasterAutomaton#State] =
+		/**
+		 * Produces a state corresponding to `start` in the `MasterAutomaton`
+		 * of the specified dimension. May fail if `start` does not accept a
+		 * fixed-length language.
+		 * @param dimension must be greater than 0
+		 * @param length must be non-negative
+		 */
+		def fromEdges(start: Int, edges: Seq[(Int, Int, Seq[Seq[Boolean]])], end: Int, length: Int, dimension: Int): Automaton = {
+			require(dimension > 0)
+			require(length >= 0)
+
+			val transitions = mutable.Map[(Int, Seq[Boolean]), mutable.Set[Int]]()
+			val master = MasterAutomaton(dimension)
+			val buffer = mutable.Map[Set[Int], master.State]()
+
+			def aux(len: Int, states: Set[Int]): master.State = buffer.getOrElse(states, {
+				// we don't use `getOrElseUpdate` here because buffering `(len, states)` pairs
+				// has too much overhead as every `states` set has an unique `len` (except the
+				// empty set, which may occur as the trap state)
+				if (states.isEmpty)
+					master.EmptySet ofLength len
+				else if (states contains end)
+					master.Epsilon
+				else {
+					val res = master.Succ(Util.chars(dimension) map { c =>
+						aux(len-1, states.flatMap(s => transitions.getOrElse((s, c), Set.empty[Int]))(breakOut))
+					})
+					buffer(states) = res
+					res
+				}
+			})
+
+			for ((from, to, chars) <- edges; char <- chars)
+				transitions.getOrElseUpdate((from, char), mutable.Set()) += to
+
+			aux(length, Set(start))
+		}
+
+		def automaton: Parser[Automaton] =
 			number >> { dim => 
 				number ~
 				"""digraph G \{\s*""".r ~
@@ -72,7 +118,7 @@ object Parser {
 					Util.log("start: " + start)
 					Util.log("end: " + end)
 					Util.log("edges: " + edges)
-					MasterAutomaton.fromEdges(start, edges, end, length, dim)
+					fromEdges(start, edges, end, length, dim)
 				}
 			}
 
