@@ -151,9 +151,21 @@ digraph G {
 		
 	}
 
+	object Presburgers {
+
+		import presburger._
+
+		val compiler = new Compiler(2)
+
+		val diff = compiler.compileRelation(Seq(1, -1), _ > BigInt(0))
+		Two.assertContains(diff, (1, 0), (2, 0), (2, 1), (3, 0), (3, 1), (3, 2))
+
+	}
+
 	// force initialization
 	Three
 	Parsers
+	Presburgers
 
 }
 
