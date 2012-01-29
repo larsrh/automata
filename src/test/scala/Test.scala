@@ -153,12 +153,25 @@ digraph G {
 
 	object Presburgers {
 
+		def assertVars(actual: List[String], required: String*) =
+			assert(required.toList === actual)
+
+		def assertNums(actual: List[List[BigInt]], required: Seq[Int]*) =
+			assert((required.toList map { seq => seq.toList map BigInt.apply }) === actual)
+
 		import presburger._
 
-		val compiler = new Compiler(2)
-
-		val diff = compiler.compileRelation(Seq(1, -1), _ > BigInt(0))
+		val compiler2 = new Compiler(2)
+		val diff = compiler2.compileRelation(List(1, -1), _ > BigInt(0))
 		Two.assertContains(diff, (1, 0), (2, 0), (2, 1), (3, 0), (3, 1), (3, 2))
+
+		val f1 = "(((2x-y<=2 && Ew y-4w==0) && x+y>=4) && Ez x-4z==0)"
+		val evaluated = Parser parse f1 map { Compiler.evaluate(_, 3) }
+		assert(evaluated.isDefined)
+
+		val (w1, v1) = evaluated.get
+		assertVars(v1, "x", "y")
+		assertNums(w1, List(0, 4))
 
 	}
 

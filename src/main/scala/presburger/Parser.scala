@@ -1,9 +1,13 @@
 package edu.tum.cs.afl.presburger
 
+import collection.breakOut
+import util.control.Exception._
+
 import org.antlr.runtime._
 import org.antlr.runtime.tree._
 
 import edu.tum.cs.afl.antlr._
+import edu.tum.cs.afl.Util._
 
 object Parser {
 
@@ -29,11 +33,27 @@ object Parser {
 		}
 	}
 
-	def collectChildren(from: Int, ast: CommonTree): Seq[CommonTree] =
-		from until ast.getChildCount() map { child(ast, _) }
+	def collectChildren(from: Int, ast: CommonTree): List[CommonTree] =
+		(from until ast.getChildCount()).map(child(ast, _))(breakOut)
 	
 	def convertSummand(ast: CommonTree): (BigInt, String) =
 		(getNum(ast), getText(child(ast, 1)))
+	
+	val IsRelation = MapExtractor(Map(
+		PA2Parser.EQ -> Relation.Equal,
+		PA2Parser.GEQ -> Relation.GreaterOrEqual,
+		PA2Parser.GT -> Relation.Greater,
+		PA2Parser.LEQ -> Relation.LessOrEqual,
+		PA2Parser.LT -> Relation.Less,
+		PA2Parser.NEQ -> Relation.NotEqual
+	))
+
+	val IsBinary = MapExtractor(Map(
+		PA2Parser.AND -> And.apply _,
+		PA2Parser.EQV -> Iff.apply _,
+		PA2Parser.IMP -> Implies.apply _,
+		PA2Parser.OR -> Or.apply _
+	))
 
 	def convertFormula(ast: CommonTree): Formula = ast.getToken().getType() match {
 		case PA2Parser.ALL =>
@@ -41,37 +61,24 @@ object Parser {
 		case PA2Parser.EX =>
 			Exists(getText(child(ast, 0)), convertFormula(child(ast, 1)))
 
-		case PA2Parser.AND =>
-			And(convertFormula(child(ast, 0)), convertFormula(child(ast, 1)))
-		case PA2Parser.EQV =>
-			Iff(convertFormula(child(ast, 0)), convertFormula(child(ast, 1)))
-		case PA2Parser.IMP =>
-			Implies(convertFormula(child(ast, 0)), convertFormula(child(ast, 1)))
-		case PA2Parser.OR =>
-			Or(convertFormula(child(ast, 0)), convertFormula(child(ast, 1)))
-
 		case PA2Parser.NEG =>
 			Not(convertFormula(child(ast, 0)))
 
-		case PA2Parser.EQ =>
-			Relation(collectChildren(1, ast) map convertSummand, getNum(child(ast, 0)), Relation.Equal)
-		case PA2Parser.GEQ =>
-			Relation(collectChildren(1, ast) map convertSummand, getNum(child(ast, 0)), Relation.GreaterOrEqual)
-		case PA2Parser.GT =>
-			Relation(collectChildren(1, ast) map convertSummand, getNum(child(ast, 0)), Relation.Greater)
-		case PA2Parser.LEQ =>
-			Relation(collectChildren(1, ast) map convertSummand, getNum(child(ast, 0)), Relation.LessOrEqual)
-		case PA2Parser.LT =>
-			Relation(collectChildren(1, ast) map convertSummand, getNum(child(ast, 0)), Relation.Less)
-		case PA2Parser.NEQ =>
-			Relation(collectChildren(1, ast) map convertSummand, getNum(child(ast, 0)), Relation.NotEqual)
+		case IsBinary(op) =>
+			op(convertFormula(child(ast, 0)), convertFormula(child(ast, 1)))
+
+		case IsRelation(rel) =>
+			Relation(collectChildren(1, ast) map convertSummand, getNum(child(ast, 0)), rel)
 	}
 
-	def parse(contents: String): Formula = convertFormula(
-		new PA2Parser(
-			new CommonTokenStream(new PA2Lexer(new ANTLRStringStream(contents)))
-		).formula().getTree().asInstanceOf[CommonTree]
-	)
+	def parse(contents: String): Option[Formula] =
+		catching(classOf[NullPointerException]) opt {
+			convertFormula(
+				new PA2Parser(
+					new CommonTokenStream(new PA2Lexer(new ANTLRStringStream(contents)))
+				).formula().getTree().asInstanceOf[CommonTree]
+			)
+		}
 
 }
 

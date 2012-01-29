@@ -57,4 +57,8 @@ object Util {
 		stream.close()
 	}
 
+	case class MapExtractor[A, B](map: Map[A, B]) {
+		def unapply(key: A): Option[B] = map get key
+	}
+
 }

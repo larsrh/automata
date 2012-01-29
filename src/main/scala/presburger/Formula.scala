@@ -18,15 +18,15 @@ object Relation {
 	case object Less extends Type
 	case object NotEqual extends Type
 
-	def apply(summands: Seq[(BigInt, String)], constant: BigInt, tpe: Type) = {
+	def apply(summands: List[(BigInt, String)], constant: BigInt, tpe: Type) = {
 		val grouped = summands groupBy { _._2 } mapValues { _ map { _._1 } sum } filter { case (v, c) => c != BigInt(0) }
-		val (vars, weights) = grouped.toSeq.sorted.unzip
+		val (vars, weights) = grouped.toList.sorted.unzip
 		new Relation(weights, vars, constant, tpe)
 	}
 
 }
 
-case class Relation(weights: Seq[BigInt], vars: Seq[String], constant: BigInt, tpe: Relation.Type) extends Formula {
+case class Relation(weights: List[BigInt], vars: List[String], constant: BigInt, tpe: Relation.Type) extends Formula {
 
 	require(weights.length == vars.length)
 
