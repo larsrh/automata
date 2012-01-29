@@ -70,6 +70,12 @@ final class MasterAutomaton private(val dimension: Int) { self =>
 		 */
 		def words: List[List[List[Boolean]]]
 
+		/** Tests whether this automaton accepts all words. */
+		def universal: Boolean
+
+		/** Tests whether this automaton accepts no word. */
+		def empty: Boolean
+
 		/**
 		 * Prepends a number of zeroes to this state, producing a new state.
 		 * @param newLength the desired length of the new state which must be greater than
@@ -216,9 +222,9 @@ final class MasterAutomaton private(val dimension: Int) { self =>
 
 						val (first, second) = succs2 splitAt (succs2.length / 2)
 
-						// the compiler warning about a non-exhaustive match can be safely
-						// ignored here
-						val pairs = succs1 grouped 2 flatMap { case List(succ1False, succ1True) =>
+						val pairs = succs1 grouped 2 flatMap { list =>
+							// to avoid a compiler warning
+							val List(succ1False, succ1True) = list
 							(first map { aux(succ1False, _) }) zip
 							(second map { aux(succ1True, _) })
 						}
@@ -373,6 +379,8 @@ final class MasterAutomaton private(val dimension: Int) { self =>
 		protected[afl] val id = 0
 		val length = 0
 		val words = List.empty[List[List[Boolean]]]
+		val universal = false
+		val empty = true
 
 		/**
 		 * Produces a state which accepts no words of the desired length.
@@ -391,6 +399,8 @@ final class MasterAutomaton private(val dimension: Int) { self =>
 		protected[afl] val id = 1
 		val length = 0
 		val words = List(List.fill(dimension)(List.empty[Boolean]))
+		val universal = true
+		val empty = false
 	}
 	
 	/**
@@ -425,6 +435,9 @@ final class MasterAutomaton private(val dimension: Int) { self =>
 					c zip w map { case (h, t) => h :: t }
 				}
 			}
+
+		val empty = succs forall { s => s.empty }
+		val universal = succs forall { s => s.universal }
 	}
 
 	/**
