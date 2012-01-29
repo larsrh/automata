@@ -29,9 +29,28 @@ object Launcher extends App {
 			processProgram(tail)
 	}
 
-	def processPresburger(length: Int, output: Boolean) = switchToOr {
+	def processPresburger(length: Int, output: Boolean): Consumer = switchToOr {
 		case file :: tail =>
-			sys error "not implemented yet"
+			presburger.Parser.parse(readFile(file)) match {
+				case None =>
+					Console.err println ("Could not parse file " + file)
+
+				case Some(formula) =>
+					val (automaton, vars) = new presburger.Compiler(length) compile formula
+					val suffix =
+						if (vars.empty)
+							if (automaton.universal) "true"
+							else if (automaton.empty) "false"
+							else ""
+						else
+							vars mkString ""
+
+					writeFile(file + ".dotty", (presburger.Printer automatonToDotty automaton) :+ suffix)
+					if (output)
+						writeFile(file + ".txt", automaton.words map { _ map seqToBigInt mkString " " })
+			}
+
+			processPresburger(length, output)
 	}
 
 	def switchTo: Consumer = {
