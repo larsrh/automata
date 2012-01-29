@@ -1,5 +1,3 @@
-import AssemblyKeys._
-
 name := "afl-assignment"
 
 version := "0.2"
