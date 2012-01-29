@@ -80,9 +80,7 @@ final class Compiler(length: Int) {
 		(aux(a1, vars1, a2, vars2, allVars, 0), allVars)
 	}
 
-	def compile(f: Formula): MetaAutomaton = {
-		println("compile("+f+")")
-		val res = f match {
+	def compile(f: Formula): MetaAutomaton = f match {
 
 		case Not(f) =>
 			val (a, vars) = compile(f)
@@ -110,7 +108,5 @@ final class Compiler(length: Int) {
 			compile(Not(Exists(v, Not(f))))
 
 	}
-		println("res of compile("+f+") = " + res)
-		res
-}
+
 }
