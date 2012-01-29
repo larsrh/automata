@@ -166,12 +166,16 @@ digraph G {
 		Two.assertContains(diff, (1, 0), (2, 0), (2, 1), (3, 0), (3, 1), (3, 2))
 
 		val f1 = "(((2x-y<=2 && Ew y-4w==0) && x+y>=4) && Ez x-4z==0)"
-		val evaluated = Parser parse f1 map { Compiler.evaluate(_, 3) }
-		assert(evaluated.isDefined)
-
-		val (w1, v1) = evaluated.get
+		val evaluated1 = Parser parse f1 map { Compiler.evaluate(_, 3) }
+		val (w1, v1) = evaluated1.get
 		assertVars(v1, "x", "y")
 		assertNums(w1, List(0, 4))
+
+		val f2 = "Ax x==1"
+		val evaluated2 = Parser parse f2 map { Compiler.evaluate(_, 1) }
+		val (w2, v2) = evaluated2.get
+		assertVars(v2)
+		assertNums(w2)
 
 	}
 
