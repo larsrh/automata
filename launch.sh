@@ -9,7 +9,7 @@ OLDDIR="$(pwd)"
 
 cd "$(dirname "$0")" || die "Could not change directory"
 
-if [ ! -e "target/afl-assignment-assembly-0.1.jar" ]; then
+if [ ! -e "target/afl-assignment-assembly-0.2.jar" ]; then
 	echo "*** Build process starting"
 	echo "*** The runtime is measured automatically after the build process has completed."
 	echo
@@ -45,7 +45,7 @@ cd "$OLDDIR" || die "Could not change directory"
 echo "*** Processing"
 echo
 
-time java -jar "$(dirname "$0")/target/afl-assignment-assembly-0.1.jar" "$@"
+time java -jar "$(dirname "$0")/target/afl-assignment-assembly-0.2.jar" "$@"
 
 echo
 echo "*** Done."
