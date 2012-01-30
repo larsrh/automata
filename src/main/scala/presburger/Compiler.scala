@@ -86,15 +86,32 @@ final class Compiler(length: Int) {
 
 		case Not(f) =>
 			val (a, vars) = compile(f)
-			(a.complement, vars)
+			lazy val master = MasterAutomaton(vars.length)
+			val res =
+				if (a.empty) master.Epsilon padTo length
+				else if (a.universal) master.EmptySet ofLength length
+				else a.complement
+			(res, vars)
 
 		case And(f1, f2) => 
 			val ((a1, a2), vars) = equalize(compile(f1), compile(f2))
-			(a1 intersect a2, vars)
+			val result =
+				if (a1.empty) a1
+				else if (a2.empty) a2
+				else if (a1.universal) a2
+				else if (a2.universal) a1
+				else a1 intersect a2
+			(result, vars)
 
 		case Or(f1, f2) =>
 			val ((a1, a2), vars) = equalize(compile(f1), compile(f2))
-			(a1 union a2, vars)
+			val result =
+				if (a1.empty) a2
+				else if (a2.empty) a1
+				else if (a1.universal) a1
+				else if (a2.universal) a2
+				else a1 union a2
+			(result, vars)
 
 		case rel @ Relation(weights, vars, _, _) =>
 			(compileRelation(weights, rel.acceptor), vars)
@@ -103,7 +120,13 @@ final class Compiler(length: Int) {
 			val (a, vars) = compile(f)
 			vars indexOf v match {
 				case -1 => (a, vars)
-				case n => (a projection (n + 1), vars.patch(n, Nil, 1))
+				case n =>
+					lazy val master = MasterAutomaton(vars.length - 1)
+					val result =
+						if (a.empty) master.EmptySet ofLength length
+						else if (a.universal) master.Epsilon padTo length
+						else a projection (n + 1)
+					(result, vars.patch(n, Nil, 1))
 			}
 
 		case Forall(v, f) =>
