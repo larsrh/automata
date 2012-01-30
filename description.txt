@@ -90,11 +90,25 @@ folder src/main/scala and consists of the following files:
 * `programs` is the package for the first assignment
 
   * `Parser.scala` parsers for the input program and the automata based on the
-	Scala parser combinator library which is described in [2].
+     Scala parser combinator library which is described in [2].
 
   * `Program.scala` contains the representation of the abstract syntax tree of
     the input programs. It makes heavy use of the Haskell-inspired ``scalaz''
     library [3].
+
+* `presburger` is the package for the second assignment
+
+  * `Parser.scala` converts the ANTLR abstract syntax tree to the representation
+    used in this application.
+
+  * `Formula.scala` contains the definition of the internal representation of
+    formulas.
+
+  * `Compiler.scala` transforms a parsed formula to an automaton, including
+    various optimizations on top of the `MasterAutomaton`.
+
+  * `Printer.scala` produces the specified dotty representation of the
+    automaton.
 
 
 [1] <https://github.com/harrah/xsbt>
