@@ -9,6 +9,10 @@ import org.antlr.runtime.tree._
 import edu.tum.cs.afl.antlr._
 import edu.tum.cs.afl.Util._
 
+/**
+ * Umbrella object for the parser. Contains utility method which traverse the
+ * AST obtained from ANTLR.
+ */
 object Parser {
 
 	def child(ast: CommonTree, pos: Int) = ast.getChild(pos).asInstanceOf[CommonTree]

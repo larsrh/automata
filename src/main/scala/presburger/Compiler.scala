@@ -9,10 +9,17 @@ import edu.tum.cs.afl.MasterAutomaton
 import MasterAutomaton._
 import edu.tum.cs.afl.Util._
 
+/** Utility object for the compiler. */
 object Compiler {
 
+	/** An `Automaton` annotated with the list of its free variables. */
 	type MetaAutomaton = (Automaton, List[String])
 
+	/**
+	 * Performs a multi-step evaluation by first compiling the formula,
+	 * then converting all accepted words (lists of bit strings) to
+	 * lists of `BigInt`s.
+	 */
 	def evaluate(f: Formula, length: Int): (List[List[BigInt]], List[String]) = {
 		val compiler = new Compiler(length)
 		val (automaton, vars) = compiler compile f
@@ -22,12 +29,27 @@ object Compiler {
 
 }
 
+/**
+ * Compiles a formula to an automaton.
+ * @param length the length of the fixed-length automaton, which must be
+ *        greater than zero
+ */
 final class Compiler(length: Int) {
 
 	require(length > 0)
 
 	import Compiler._
 
+	/**
+	 * Translates a relation `P(ax + by + ...)` to an automaton, where `P`
+	 * is an arbitrary predicate.
+	 *
+	 * The strategy is to "simulate" all possible executions, thus associating
+	 * the current sum to states.
+	 * @param weights the coefficients of the variables (`a`, `b`, ...)
+	 * @param accept the predicate which should return `true` iff the specified
+	 *        `BigInt` satisfies the condition
+	 */
 	def compileRelation(weights: List[BigInt], accept: BigInt => Boolean): Automaton = {
 		require(weights.length > 0)
 
@@ -58,6 +80,17 @@ final class Compiler(length: Int) {
 		aux(0, BigInt(1) << (length - 1), length - 1)
 	}
 
+	/**
+	 * Lifts two automata to a comparable representation, that is, using the
+	 * same variables. Missing variables in either automaton are inserted.
+	 *
+	 * Example: Assume the first automaton has the free variables `x` and `y`
+	 * and the second automaton has the free variables `x` and `z`. This
+	 * methods return two automata which have the free variables `x`, `y` and
+	 * `z` and recognize the same languages as before (with respect to the
+	 * previously existing variables). For the newly introduced variables,
+	 * any value is accepted.
+	 */
 	def equalize(ma1: MetaAutomaton, ma2: MetaAutomaton) = {
 		def ensureVar(a: Automaton, vars: List[String], v: String, pos: Int) = vars match {
 			case `v` :: tail => (a, tail)
@@ -82,6 +115,7 @@ final class Compiler(length: Int) {
 		(aux(a1, vars1, a2, vars2, allVars, 0), allVars)
 	}
 
+	/** Transforms a `Formula` to a `MetaAutomaton`. */
 	def compile(f: Formula): MetaAutomaton = f match {
 
 		case Not(f) =>

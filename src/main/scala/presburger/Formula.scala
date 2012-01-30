@@ -18,6 +18,7 @@ object Relation {
 	case object Less extends Type
 	case object NotEqual extends Type
 
+	/** Produces a `Relation` after grouping and filtering the summands. */
 	def apply(summands: List[(BigInt, String)], constant: BigInt, tpe: Type) = {
 		val grouped = summands groupBy { _._2 } mapValues { _ map { _._1 } sum } filter { case (v, c) => c != BigInt(0) }
 		val (vars, weights) = grouped.toList.sorted.unzip
@@ -26,7 +27,7 @@ object Relation {
 
 }
 
-case class Relation(weights: List[BigInt], vars: List[String], constant: BigInt, tpe: Relation.Type) extends Formula {
+case class Relation private(weights: List[BigInt], vars: List[String], constant: BigInt, tpe: Relation.Type) extends Formula {
 
 	require(weights.length == vars.length)
 

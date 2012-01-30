@@ -11,6 +11,7 @@ import edu.tum.cs.afl.Util._
 
 object Printer {
 
+	/** Converts an automaton to a `String` representation. */
 	def automatonToDotty(automaton: Automaton): List[String] = {
 		val visited = mutable.Set[Automaton]()
 
