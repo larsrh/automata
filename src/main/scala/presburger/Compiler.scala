@@ -24,6 +24,8 @@ object Compiler {
 
 final class Compiler(length: Int) {
 
+	require(length > 0)
+
 	import Compiler._
 
 	def compileRelation(weights: List[BigInt], accept: BigInt => Boolean): Automaton = {
