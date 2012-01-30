@@ -50,7 +50,7 @@ object Launcher extends App {
 						writeFile(file + ".txt", automaton.words map { _ map seqToBigInt mkString " " })
 			}
 
-			processPresburger(length, output)
+			processPresburger(length, output)(tail)
 	}
 
 	def switchTo: Consumer = {
