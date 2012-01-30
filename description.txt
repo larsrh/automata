@@ -37,7 +37,7 @@ $ $REPO_ROOT/launch.sh --program input input2 --presburger 3 y formula0
 
 # the documentation will be in the folder $REPO_ROOT/target/scala-2.9.1/api
 
-# the JAR will be generated as $REPO_ROOT/target/afl-assignment-assembly-0.1.jar
+# the JAR will be generated as $REPO_ROOT/target/afl-assignment-assembly-0.2.jar
 # It is executable in the same way as the launcher (with the same working
 # directory):
 $ $PATH_TO_JAR --program input input2 --presburger 3 y formula0
@@ -61,6 +61,16 @@ Fun fact
 The JAR containing the program and all required libraries (ANTLR, Scalaz, ...)
 consists of more than 100 packages and 10,000 class files. Dear JVM class
 loader, have fun loading that mess.
+
+Corner cases of the Presburger implementation
+---------------------------------------------
+
+If the formula is closed, the list of words `filename.txt` will not contain any
+word regardless whether it is a tautology or a contradiction. See the last line
+in the file `filename.dotty` for that. Furthermore, the generated graph will,
+if it is a contradiction, contain only the start node with no final nodes, or,
+if it is a tautology, contain n nodes where n is the specified length increased
+by 1.
 
 Implementation overview
 -----------------------
